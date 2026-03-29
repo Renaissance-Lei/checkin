@@ -4,8 +4,8 @@ on:
   workflow_dispatch:
   schedule:
     # GitHub Actions 的 cron 使用 UTC。
-    # 01:05 UTC = 09:05 Asia/Shanghai
-    - cron: "5 1 * * *"
+    # 16:05 UTC = 次日 00:05 Asia/Shanghai
+    - cron: "5 16 * * *"
 
 jobs:
   checkin:

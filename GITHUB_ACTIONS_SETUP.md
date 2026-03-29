@@ -30,7 +30,7 @@ python generate_session_string.py
 
 默认配置是：
 
-- 每天北京时间 09:05 自动执行一次
+- 每天北京时间 00:05 自动执行一次
 - 同时支持在 GitHub Actions 页面里手动点击运行
 
 如果你想改执行时间，修改 `cron` 即可。
@@ -38,7 +38,7 @@ python generate_session_string.py
 注意：
 
 - GitHub Actions 的 `cron` 使用 UTC，不是北京时间
-- 当前 `5 1 * * *` 对应北京时间 `09:05`
+- 当前 `5 16 * * *` 对应北京时间次日 `00:05`
 
 ## 推送前建议
 
