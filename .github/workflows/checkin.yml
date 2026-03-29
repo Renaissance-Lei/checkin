@@ -5,7 +5,7 @@ on:
   schedule:
     # GitHub Actions 的 cron 使用 UTC。
     # 01:05 UTC = 09:05 Asia/Shanghai
-    - cron: "5 1 * * *"
+    - cron: "5 8 * * *"
 
 jobs:
   checkin:
