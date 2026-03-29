@@ -486,30 +486,23 @@ def get_button_text(message: Message, row_index: int, col_index: int) -> Optiona
 
 def find_button_message(messages: list[Message]) -> Optional[Message]:
     """
-    从最近消息里找到一个带目标按钮的消息。
-
-    规则：
-    1. 优先找“指定行列位置正确，且文字也匹配”的按钮
-    2. 如果位置没找到，再退而求其次，查找任意位置里文字匹配的按钮
+    改进版：
+    不再依赖固定行列，改为“关键词模糊匹配按钮”
     """
 
-    row_index = TARGET_BUTTON_ROW - 1
-    col_index = TARGET_BUTTON_COL - 1
-
-    # 第一轮：严格按“第五行第二个”去找
-    for message in messages:
-        button_text = get_button_text(message, row_index, col_index)
-        if button_text == TARGET_BUTTON_TEXT:
-            return message
-
-    # 第二轮：如果布局发生轻微变化，就改成按文字兜底查找
     for message in messages:
         if not message.buttons:
             continue
 
         for row in message.buttons:
             for button in row:
-                if getattr(button, "text", None) == TARGET_BUTTON_TEXT:
+                text = (getattr(button, "text", "") or "").strip()
+
+                # 👇 调试日志（非常关键）
+                logging.info("DEBUG按钮: %r", text)
+
+                # 👇 核心：模糊匹配
+                if TARGET_BUTTON_TEXT in text:
                     return message
 
     return None
@@ -524,55 +517,24 @@ async def wait_for_button_message(
     """
     发完 /start 后等待机器人返回带目标按钮的消息。
     使用轮询而不是只等单条响应，是为了兼容“机器人连续发多条消息”的场景。
-    """
-
-    deadline = now_local() + timedelta(seconds=timeout_seconds)
-    fallback_message: Optional[Message] = None
-
-    while now_local() < deadline:
-        recent_messages = await get_recent_bot_messages(client, bot_username)
-        target_message = find_button_message(recent_messages)
-        if target_message is not None:
-            if previous_message_ids and target_message.id in previous_message_ids:
-                # 如果找到的是 /start 之前就存在的旧菜单，先记下来做兜底，不立即点击。
-                # 这样能优先等待机器人刚刚发出的新菜单，减少误点历史消息的概率。
-                fallback_message = target_message
-            else:
-                return target_message
-
-        await asyncio.sleep(POLL_INTERVAL_SECONDS)
-
-    return fallback_message
-
+    
 
 async def click_target_button(message: Message) -> None:
     """
-    点击目标按钮。
-
-    逻辑说明：
-    1. 优先按“第五行第二个”点击，因为这是你提供的最准确信息
-    2. 如果指定位置文字不匹配，就退回按文字点击，适配机器人菜单偶尔改版
+    改进版：
+    直接遍历按钮，用“包含匹配”点击，而不是固定位置
     """
 
-    row_index = TARGET_BUTTON_ROW - 1
-    col_index = TARGET_BUTTON_COL - 1
+    for row in message.buttons:
+        for button in row:
+            text = (getattr(button, "text", "") or "").strip()
 
-    button_text = get_button_text(message, row_index, col_index)
-    if button_text == TARGET_BUTTON_TEXT:
-        await message.click(row_index, col_index)
-        logging.info(
-            "已按位置点击按钮: 第 %s 行第 %s 个，按钮文字=%s",
-            TARGET_BUTTON_ROW,
-            TARGET_BUTTON_COL,
-            TARGET_BUTTON_TEXT,
-        )
-        return
+            if TARGET_BUTTON_TEXT in text:
+                await button.click()
+                logging.info("已点击按钮: %s", text)
+                return
 
-    # 如果位置对应的按钮和预期不一致，说明菜单布局可能变了。
-    # 这时改用文字查找，比强行点错位置更安全。
-    await message.click(text=TARGET_BUTTON_TEXT)
-    logging.info("按钮位置可能已变化，已改为按文字点击: %s", TARGET_BUTTON_TEXT)
-
+    raise RuntimeError("找到了按钮消息，但未找到可点击的目标按钮")
 
 async def wait_for_result_after_click(
     client: TelegramClient,
