@@ -1,0 +1,47 @@
+name: Telegram Checkin
+
+on:
+  workflow_dispatch:
+  schedule:
+    # GitHub Actions 的 cron 使用 UTC。
+    # 01:05 UTC = 09:05 Asia/Shanghai
+    - cron: "5 1 * * *"
+
+jobs:
+  checkin:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    env:
+      # 敏感信息建议全部放到 GitHub Secrets。
+      TG_API_ID: ${{ secrets.TG_API_ID }}
+      TG_API_HASH: ${{ secrets.TG_API_HASH }}
+      TG_PHONE_NUMBER: ${{ secrets.TG_PHONE_NUMBER }}
+      TG_SESSION_STRING: ${{ secrets.TG_SESSION_STRING }}
+
+      # 下面这些可以继续放在代码默认值里，也可以在这里覆盖。
+      TG_BOT_USERNAME: "@NanoAir_bot"
+      TG_TARGET_BUTTON_TEXT: "获取流量"
+      TG_TARGET_BUTTON_ROW: "5"
+      TG_TARGET_BUTTON_COL: "2"
+      TG_TIMEZONE: "Asia/Shanghai"
+      TG_CHECK_BEFORE_SIGN: "true"
+
+      # GitHub Actions 是无状态环境，建议关闭本地状态文件防重。
+      TG_USE_LOCAL_STATE_GUARD: "false"
+      PYTHONUTF8: "1"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: python -m pip install --upgrade pip && python -m pip install -r requirements.txt
+
+      - name: Run Telegram checkin
+        run: python checkin.py --once

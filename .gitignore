@@ -1,0 +1,7 @@
+__pycache__/
+*.py[cod]
+*.session
+checkin_state.json
+.env
+.venv/
+venv/
