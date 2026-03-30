@@ -517,7 +517,25 @@ async def wait_for_button_message(
     """
     发完 /start 后等待机器人返回带目标按钮的消息。
     使用轮询而不是只等单条响应，是为了兼容“机器人连续发多条消息”的场景。
-    
+    """
+
+    deadline = now_local() + timedelta(seconds=timeout_seconds)
+    fallback_message: Optional[Message] = None
+
+    while now_local() < deadline:
+        recent_messages = await get_recent_bot_messages(client, bot_username)
+        target_message = find_button_message(recent_messages)
+        if target_message is not None:
+            if previous_message_ids and target_message.id in previous_message_ids:
+                # 如果找到的是 /start 之前就存在的旧菜单，先记下来做兜底，不立即点击。
+                # 这样能优先等待机器人刚刚发出的新菜单，减少误点历史消息的概率。
+                fallback_message = target_message
+            else:
+                return target_message
+
+        await asyncio.sleep(POLL_INTERVAL_SECONDS)
+
+    return fallback_message
 
 async def click_target_button(message: Message) -> None:
     """
@@ -525,12 +543,17 @@ async def click_target_button(message: Message) -> None:
     直接遍历按钮，用“包含匹配”点击，而不是固定位置
     """
 
+    if not message.buttons:
+        raise RuntimeError("目标消息里没有按钮，无法点击。")
+
     for row in message.buttons:
         for button in row:
             text = (getattr(button, "text", "") or "").strip()
 
             if TARGET_BUTTON_TEXT in text:
-                await button.click()
+                # Telethon 实际执行点击时，仍然应该通过 message.click(...) 来触发，
+                # 这样兼容性比直接对按钮对象调用 click() 更稳。
+                await message.click(text=text)
                 logging.info("已点击按钮: %s", text)
                 return
 
